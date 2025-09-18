@@ -48,7 +48,11 @@ type BitcaskHandle struct {
 // 4	8	4	4		ksz		vsz
 func readRecord(f *os.File) (*FileEntry, int64, error) {
 	header := make([]byte, 20)
-	if _, err := io.ReadFull(f, header); err != nil {
+	_, err := io.ReadFull(f, header)
+	if err != nil {
+		if err == io.EOF || err == io.ErrUnexpectedEOF {
+			return nil, 0, io.EOF
+		}
 		return nil, 0, err
 	}
 
@@ -109,12 +113,14 @@ func Open(dir string, opts Options) (*BitcaskHandle, error) {
 		if err != nil {
 			return nil, err
 		}
-		defer f.Close()
-
 		var offset int64
 		for {
 			entry, size, err := readRecord(f)
 			if err != nil {
+				if err == io.EOF || err == io.ErrUnexpectedEOF{
+					break
+				}
+				f.Close()
 				return nil, err
 			}
 			b.Keydir[entry.Key] = KeydirEntry{
@@ -126,6 +132,7 @@ func Open(dir string, opts Options) (*BitcaskHandle, error) {
 
 			offset += size
 		}
+		f.Close()
 	}
 	return b, nil
 }
