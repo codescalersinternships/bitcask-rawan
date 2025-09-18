@@ -2,47 +2,12 @@ package bitcask
 
 import (
 	"encoding/binary"
-	"errors"
 	"hash/crc32"
 	"io"
 	"os"
 	"path/filepath"
 	"sort"
-	"sync"
 )
-
-const MaxFileSize = 10 * 1024 * 1024 // 10MB
-
-var ErrIncorrectCrc = errors.New("incorrect crc")
-
-type FileEntry struct {
-	Crc       uint32
-	Timestamp uint64
-	KeySize   int
-	ValueSize int
-	Key       string
-	Value     any
-}
-
-type KeydirEntry struct {
-	Timestamp uint64
-	FileId    string
-	ValueSize int
-	ValuePos  int64
-}
-
-type Options struct {
-	ReadWrite bool
-	SyncOnPut bool
-}
-
-type BitcaskHandle struct {
-	Dir    string
-	Keydir map[string]KeydirEntry
-	Opts   Options
-	mu     sync.RWMutex
-	active *os.File
-}
 
 // -----header-----
 // crc	ts	ks	vs		key		value
@@ -108,16 +73,16 @@ func Open(dir string, opts Options) (*BitcaskHandle, error) {
 	if err != nil {
 		return nil, err
 	}
+	sort.Strings(files)
 
 	if len(files) == 0 { // no files yet --> create the first active file
-		f, err := os.OpenFile(filepath.Join(dir, "000000.data"), os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
+		f, err := os.OpenFile(filepath.Join(dir, "0000000001.data"), os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
 		if err != nil {
 			return nil, err
 		}
 		b.active = f
 		return b, nil
 	}
-	sort.Strings(files)
 
 	for i, file := range files {
 		f, err := os.Open(file)
@@ -126,13 +91,14 @@ func Open(dir string, opts Options) (*BitcaskHandle, error) {
 		}
 		var offset int64
 		for {
+
 			entry, size, err := readRecord(f)
 			if err != nil {
 				if err == io.EOF || err == io.ErrUnexpectedEOF {
 					break
 				}
 				f.Close()
-				return nil, err
+				break
 			}
 			b.Keydir[entry.Key] = KeydirEntry{
 				Timestamp: entry.Timestamp,
@@ -145,13 +111,13 @@ func Open(dir string, opts Options) (*BitcaskHandle, error) {
 		}
 		f.Close()
 
-		  if i == len(files)-1 { // no unexpected break or return 
-            active, err := os.OpenFile(file, os.O_RDWR|os.O_APPEND, 0644)
-            if err != nil {
-                return nil, err
-            }
-            b.active = active
-        }
+		if i == len(files)-1 {
+			active, err := os.OpenFile(file, os.O_RDWR|os.O_APPEND, 0644)
+			if err != nil {
+				return nil, err
+			}
+			b.active = active
+		}
 	}
 	return b, nil
 }
