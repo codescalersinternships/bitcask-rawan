@@ -1,9 +1,164 @@
 package bitcask
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 )
 
-func TestPut(t *testing.T){
-	
+func TestPutNoData(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "testdata")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	b, err := Open(tempDir, Options{ReadWrite: true})
+	if err != nil {
+		t.Fatalf("failed to open bitcask %v", err)
+	}
+
+	key := []byte("putTestKey")
+	value := []byte("1")
+
+	err = Put(b, key, value)
+
+	if err != nil {
+		t.Fatalf("error putting the key %v", err)
+
+	}
+
+	keyStr := string(key)
+	// key exist in keydir
+	entry, exists := b.Keydir[keyStr]
+	if !exists {
+		t.Fatalf("key %s not found in keydir", keyStr)
+	}
+
+	// value size
+	if entry.ValueSize != len(value) {
+		t.Errorf("expected value size %d, got %d", len(value), entry.ValueSize)
+	}
+
+	// value written at the correct position
+	file, err := os.Open(filepath.Join(tempDir, entry.FileId))
+	if err != nil {
+		t.Fatalf("failed to open data file: %v", err)
+	}
+	defer file.Close()
+
+	valueFromFile := make([]byte, entry.ValueSize)
+	_, err = file.ReadAt(valueFromFile, entry.ValuePos)
+	if err != nil {
+		t.Fatalf("failed to read value from file: %v", err)
+	}
+
+	if string(valueFromFile) != string(value) {
+		t.Errorf("value from file mismatch: expected %s, got %s", string(value), string(valueFromFile))
+	}
+}
+
+func createTestDataFiles(t *testing.T, tempDir string) {
+	t.Helper()
+
+	entries := []*FileEntry{
+		{
+			Timestamp: 1234567890,
+			Key:       "key1",
+			Value:     []byte("value1"),
+		},
+		{
+			Timestamp: 24681012,
+			Key:       "key2",
+			Value:     []byte("value2"),
+		},
+	}
+
+	for _, entry := range entries {
+		entry.KeySize = len(entry.Key)
+		entry.ValueSize = len(entry.Value.([]byte))
+		entry.Crc = calculateCRC(entry.Timestamp, entry.KeySize, entry.ValueSize, entry.Key, entry.Value.([]byte))
+	}
+
+	path := filepath.Join(tempDir, "0000000001.data")
+	err := createTestDataFile(path, entries)
+	if err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+}
+
+func TestPutWithData(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "testdata")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	createTestDataFiles(t, tempDir)
+
+	b, err := Open(tempDir, Options{ReadWrite: true})
+	if err != nil {
+		t.Fatalf("failed to open bitcask %v", err)
+	}
+
+	key := []byte("putTestKey")
+	value := []byte("1")
+
+	err = Put(b, key, value)
+	if err != nil {
+		t.Fatalf("error putting the key %v", err)
+
+	}
+
+	keyStr := string(key)
+	// key exist in keydir
+	entry, exists := b.Keydir[keyStr]
+	if !exists {
+		t.Fatalf("key %s not found in keydir", keyStr)
+	}
+
+	// value size
+	if entry.ValueSize != len(value) {
+		t.Errorf("expected value size %d, got %d", len(value), entry.ValueSize)
+	}
+
+	// value written at the correct position
+	file, err := os.Open(filepath.Join(tempDir, entry.FileId))
+	if err != nil {
+		t.Fatalf("failed to open data file: %v", err)
+	}
+	defer file.Close()
+
+	valueFromFile := make([]byte, entry.ValueSize)
+	_, err = file.ReadAt(valueFromFile, entry.ValuePos)
+	if err != nil {
+		t.Fatalf("failed to read value from file: %v", err)
+	}
+
+	if string(valueFromFile) != string(value) {
+		t.Errorf("value from file mismatch: expected %s, got %s", string(value), string(valueFromFile))
+	}
+
+	fileContent, _ := os.ReadFile(filepath.Join(tempDir, entry.FileId))
+	t.Logf("Full file content (hex): %x", fileContent)
+	t.Logf("File size: %d bytes", len(fileContent))
+	t.Logf("Trying to read from position: %d, size: %d", entry.ValuePos, entry.ValueSize)
+}
+
+func TestPutReadOnly(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "testdata")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	b, err := Open(tempDir, Options{ReadWrite: false})
+	if err != nil {
+		t.Fatalf("failed to open bitcask: %v", err)
+	}
+
+	err = Put(b, []byte("testKey"), []byte("testValue"))
+	if err != ErrUnuthorizedPut {
+		t.Errorf("expected ErrUnuthorizedPut, got %v", err)
+	}
 }
