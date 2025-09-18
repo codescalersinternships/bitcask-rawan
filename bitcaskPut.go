@@ -2,13 +2,12 @@ package bitcask
 
 import (
 	"encoding/binary"
-	"errors"
 	"hash/crc32"
+	"io"
 	"os"
+	"path/filepath"
 	"time"
 )
-
-var ErrUnuthorizedPut error = errors.New("this process in unauthorized to write in this bitcask store")
 
 func calculateCRC(ts uint64, keySize, valueSize int, key string, value []byte) uint32 {
 	header := make([]byte, 16)
@@ -30,6 +29,13 @@ func Put(handle *BitcaskHandle, key []byte, value []byte) error {
 	if err != nil {
 		return err
 	}
+	defer file.Close()
+
+	pos, err := file.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return err
+	}
+
 	header := make([]byte, 20)
 	ts := uint64(time.Now().Unix())
 	binary.BigEndian.PutUint32(header[0:4], calculateCRC(ts, len(key), len(value), string(key), value))
@@ -40,6 +46,15 @@ func Put(handle *BitcaskHandle, key []byte, value []byte) error {
 	file.Write(header)
 	file.Write(key)
 	file.Write(value)
+
+	handle.mu.Lock()
+	defer handle.mu.Unlock()
+	handle.Keydir[string(key)] = KeydirEntry{
+		Timestamp: ts,
+		FileId:    filepath.Base(handle.active.Name()),
+		ValueSize: len(value),
+		ValuePos:  pos + 20 + int64(len(key)),
+	}
 
 	return nil
 }
