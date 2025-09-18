@@ -39,29 +39,24 @@ func TestOpen(t *testing.T) {
 
 	entries := []*FileEntry{
 		{
-			Crc:       calculateCRC(1234567890, 3, 5, "key1", []byte("value1")),
 			Timestamp: 1234567890,
-			KeySize:   4,
-			ValueSize: 6,
 			Key:       "key1",
 			Value:     []byte("value1"),
 		},
 		{
-			Crc:       calculateCRC(24681012, 3, 5, "key2", []byte("value2")),
 			Timestamp: 24681012,
-			KeySize:   4,
-			ValueSize: 6,
 			Key:       "key2",
 			Value:     []byte("value2"),
 		},
 	}
 	for _, entry := range entries {
+		entry.KeySize = len(entry.Key)
+		entry.ValueSize = len(entry.Value.([]byte))
 		entry.Crc = calculateCRC(entry.Timestamp, entry.KeySize, entry.ValueSize, entry.Key, entry.Value.([]byte))
 	}
 
-	path := filepath.Join(tempDir, "test.data")
+	path := filepath.Join(tempDir, "0000000001.data")
 	err = createTestDataFile(path, entries)
-
 	if err != nil {
 		t.Fatalf("Failed to create test file %v", err)
 	}
@@ -73,14 +68,14 @@ func TestOpen(t *testing.T) {
 	expectedKeyDir := map[string]KeydirEntry{
 		"key1": {
 			Timestamp: 1234567890,
-			FileId:    "test.data",
+			FileId:    "0000000001.data",
 			ValueSize: 6,
 			ValuePos:  20 + 4,
 		},
 
 		"key2": {
 			Timestamp: 24681012,
-			FileId:    "test.data",
+			FileId:    "0000000001.data",
 			ValueSize: 6,
 			ValuePos:  (20 + 4 + 6) + 20 + 4, //first entry + second entry until value
 		},
