@@ -7,10 +7,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 )
 
-const MaxFileSize = 100 * 1024 * 1024 // 100MB
+const MaxFileSize = 10 * 1024 * 1024 // 10MB
 
 var ErrIncorrectCrc = errors.New("incorrect crc")
 
@@ -108,7 +109,17 @@ func Open(dir string, opts Options) (*BitcaskHandle, error) {
 		return nil, err
 	}
 
-	for _, file := range files {
+	if len(files) == 0 { // no files yet --> create the first active file
+		f, err := os.OpenFile(filepath.Join(dir, "000000.data"), os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
+		if err != nil {
+			return nil, err
+		}
+		b.active = f
+		return b, nil
+	}
+	sort.Strings(files)
+
+	for i, file := range files {
 		f, err := os.Open(file)
 		if err != nil {
 			return nil, err
@@ -117,7 +128,7 @@ func Open(dir string, opts Options) (*BitcaskHandle, error) {
 		for {
 			entry, size, err := readRecord(f)
 			if err != nil {
-				if err == io.EOF || err == io.ErrUnexpectedEOF{
+				if err == io.EOF || err == io.ErrUnexpectedEOF {
 					break
 				}
 				f.Close()
@@ -133,6 +144,14 @@ func Open(dir string, opts Options) (*BitcaskHandle, error) {
 			offset += size
 		}
 		f.Close()
+
+		  if i == len(files)-1 { // no unexpected break or return 
+            active, err := os.OpenFile(file, os.O_RDWR|os.O_APPEND, 0644)
+            if err != nil {
+                return nil, err
+            }
+            b.active = active
+        }
 	}
 	return b, nil
 }

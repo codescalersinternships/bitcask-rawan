@@ -2,7 +2,6 @@ package bitcask
 
 import (
 	"encoding/binary"
-	"hash/crc32"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -31,17 +30,6 @@ func createTestDataFile(filename string, entries []*FileEntry) error {
 	return nil
 }
 
-func calculateCRC(ts uint64, keySize, valueSize int, key string, value []byte) uint32 {
-	header := make([]byte, 16)
-	binary.BigEndian.PutUint64(header[0:8], ts)
-	binary.BigEndian.PutUint32(header[8:12], uint32(keySize))
-	binary.BigEndian.PutUint32(header[12:16], uint32(valueSize))
-
-	data := append(header, []byte(key)...)
-	data = append(data, value...)
-	return crc32.ChecksumIEEE(data)
-}
-
 func TestOpen(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "testdata")
 	if err != nil {
@@ -67,8 +55,8 @@ func TestOpen(t *testing.T) {
 			Value:     []byte("value2"),
 		},
 	}
-	for _,entry := range entries{
-		entry.Crc = calculateCRC(entry.Timestamp,entry.KeySize,entry.ValueSize,entry.Key,entry.Value.([]byte))
+	for _, entry := range entries {
+		entry.Crc = calculateCRC(entry.Timestamp, entry.KeySize, entry.ValueSize, entry.Key, entry.Value.([]byte))
 	}
 
 	path := filepath.Join(tempDir, "test.data")
@@ -94,7 +82,7 @@ func TestOpen(t *testing.T) {
 			Timestamp: 24681012,
 			FileId:    "test.data",
 			ValueSize: 6,
-			ValuePos:  (20 + 4 +6)+ 20 + 4, //first entry + second entry until value
+			ValuePos:  (20 + 4 + 6) + 20 + 4, //first entry + second entry until value
 		},
 	}
 
