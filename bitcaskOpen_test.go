@@ -18,13 +18,22 @@ func createTestDataFile(filename string, entries []*FileEntry) error {
 	for _, entry := range entries {
 		header := make([]byte, 20)
 		binary.BigEndian.PutUint32(header[0:4], entry.Crc)
-		binary.BigEndian.PutUint64(header[4:12], entry.Timestamp)
+		binary.BigEndian.PutUint64(header[4:12], uint64(entry.Timestamp))
 		binary.BigEndian.PutUint32(header[12:16], uint32(entry.KeySize))
 		binary.BigEndian.PutUint32(header[16:20], uint32(entry.ValueSize))
 
-		file.Write(header)
-		file.Write([]byte(entry.Key))
-		file.Write(entry.Value.([]byte))
+		if _, err := file.Write(header); err != nil {
+			return err
+		}
+
+		if _, err := file.Write([]byte(entry.Key)); err != nil {
+			return err
+		}
+
+		if _, err := file.Write(entry.Value.([]byte)); err != nil {
+			return err
+		}
+
 	}
 
 	return nil

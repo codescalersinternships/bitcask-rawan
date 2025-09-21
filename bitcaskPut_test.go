@@ -25,12 +25,12 @@ func TestPutNoData(t *testing.T) {
 
 	if err != nil {
 		t.Fatalf("error putting the key %v", err)
-
 	}
 
 	keyStr := string(key)
 	// key exist in keydir
 	entry, exists := b.Keydir[keyStr]
+
 	if !exists {
 		t.Fatalf("key %s not found in keydir", keyStr)
 	}
@@ -107,7 +107,6 @@ func TestPutWithData(t *testing.T) {
 	err = Put(b, key, value)
 	if err != nil {
 		t.Fatalf("error putting the key %v", err)
-
 	}
 
 	keyStr := string(key)
@@ -138,11 +137,6 @@ func TestPutWithData(t *testing.T) {
 	if string(valueFromFile) != string(value) {
 		t.Errorf("value from file mismatch: expected %s, got %s", string(value), string(valueFromFile))
 	}
-
-	fileContent, _ := os.ReadFile(filepath.Join(tempDir, entry.FileId))
-	t.Logf("Full file content (hex): %x", fileContent)
-	t.Logf("File size: %d bytes", len(fileContent))
-	t.Logf("Trying to read from position: %d, size: %d", entry.ValuePos, entry.ValueSize)
 }
 
 func TestPutReadOnly(t *testing.T) {
