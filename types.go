@@ -9,8 +9,8 @@ import (
 const MaxFileSize = 10 * 1024 * 1024 // 10MB
 
 var ErrIncorrectCrc = errors.New("incorrect crc")
-var ErrUnuthorizedPut error = errors.New("this process in unauthorized to write in this bitcask store")
-
+var ErrUnuthorizedPut = errors.New("this process in unauthorized to write in this bitcask store")
+var ErrKeyNotFound = errors.New("key not found")
 type FileEntry struct {
 	Crc       uint32
 	Timestamp uint64
