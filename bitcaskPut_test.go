@@ -3,6 +3,7 @@ package bitcask
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -154,5 +155,79 @@ func TestPutReadOnly(t *testing.T) {
 	err = Put(b, []byte("testKey"), []byte("testValue"))
 	if err != ErrUnuthorizedPut {
 		t.Errorf("expected ErrUnuthorizedPut, got %v", err)
+	}
+}
+
+func TestPutFileThreshold(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "testdata")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	b, err := Open(tempDir, Options{ReadWrite: true})
+	if err != nil {
+		t.Fatalf("failed to open bitcask %v", err)
+	}
+
+	key := []byte("k1")
+	value := []byte(strings.Repeat("a", 90))
+
+	err = Put(b, key, value)
+	if err != nil {
+		t.Fatalf("error putting the key %v", err)
+	}
+
+	key = []byte("k2")
+	value = []byte(strings.Repeat("a", 90))
+
+	err = Put(b, key, value)
+	if err != nil {
+		t.Fatalf("error putting the key %v", err)
+	}
+
+	files, err := os.ReadDir(tempDir)
+	if err != nil {
+		t.Fatalf("failed to read temp dir: %v", err)
+	}
+
+	dataFiles := []string{}
+	for _, f := range files {
+		if strings.HasSuffix(f.Name(), ".data") {
+			dataFiles = append(dataFiles, f.Name())
+		}
+	}
+
+	if len(dataFiles) < 2 {
+		t.Errorf("expected more than 2 files due to file threshold, got %v", dataFiles)
+	}
+
+	keyStr := string(key)
+	// key exist in keydir
+	entry, exists := b.Keydir[keyStr]
+	if !exists {
+		t.Fatalf("key %s not found in keydir", keyStr)
+	}
+
+	//correct fileid check
+	if entry.FileId != dataFiles[len(dataFiles)-1] {
+		t.Errorf("wrong active file")
+	}
+
+	// value written at the correct position
+	file, err := os.Open(filepath.Join(tempDir, entry.FileId))
+	if err != nil {
+		t.Fatalf("failed to open data file: %v", err)
+	}
+	defer file.Close()
+
+	valueFromFile := make([]byte, entry.ValueSize)
+	_, err = file.ReadAt(valueFromFile, entry.ValuePos)
+	if err != nil {
+		t.Fatalf("failed to read value from file: %v", err)
+	}
+
+	if string(valueFromFile) != string(value) {
+		t.Errorf("value from file mismatch: expected %s, got %s", string(value), string(valueFromFile))
 	}
 }

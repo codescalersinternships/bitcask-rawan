@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-const MaxFileSize = 10 * 1024 * 1024 // 10MB
+const MaxFileSize = 100 // 100 byte
 
 var ErrIncorrectCrc = errors.New("incorrect crc")
 var ErrUnuthorizedPut = errors.New("this process in unauthorized to write in this bitcask store")
