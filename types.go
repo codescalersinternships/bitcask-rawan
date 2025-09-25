@@ -25,6 +25,7 @@ type KeydirEntry struct {
 	FileId    string
 	ValueSize int
 	ValuePos  int64
+	Tombstone bool
 }
 
 type Options struct {
