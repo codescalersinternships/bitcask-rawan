@@ -17,7 +17,7 @@ type FileEntry struct {
 	KeySize   int
 	ValueSize int
 	Key       string
-	Value     any
+	Value     []byte
 }
 
 type KeydirEntry struct {

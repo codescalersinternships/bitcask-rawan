@@ -30,7 +30,7 @@ func createTestDataFile(filename string, entries []*FileEntry) error {
 			return err
 		}
 
-		if _, err := file.Write(entry.Value.([]byte)); err != nil {
+		if _, err := file.Write(entry.Value); err != nil {
 			return err
 		}
 
@@ -60,8 +60,8 @@ func TestOpen(t *testing.T) {
 	}
 	for _, entry := range entries {
 		entry.KeySize = len(entry.Key)
-		entry.ValueSize = len(entry.Value.([]byte))
-		entry.Crc = calculateCRC(entry.Timestamp, entry.KeySize, entry.ValueSize, entry.Key, entry.Value.([]byte))
+		entry.ValueSize = len(entry.Value)
+		entry.Crc = calculateCRC(entry.Timestamp, entry.KeySize, entry.ValueSize, []byte(entry.Key), entry.Value)
 	}
 
 	path := filepath.Join(tempDir, "0000000001.data")

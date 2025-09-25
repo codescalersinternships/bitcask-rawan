@@ -12,13 +12,13 @@ import (
 	"time"
 )
 
-func calculateCRC(ts uint64, keySize, valueSize int, key string, value []byte) uint32 {
+func calculateCRC(ts uint64, keySize, valueSize int, key []byte, value []byte) uint32 {
 	header := make([]byte, 16)
 	binary.BigEndian.PutUint64(header[0:8], ts)
 	binary.BigEndian.PutUint32(header[8:12], uint32(keySize))
 	binary.BigEndian.PutUint32(header[12:16], uint32(valueSize))
 
-	data := append(header, []byte(key)...)
+	data := append(header, key...)
 	data = append(data, value...)
 	return crc32.ChecksumIEEE(data)
 }
@@ -36,7 +36,7 @@ func Put(handle *BitcaskHandle, key []byte, value []byte) error {
 
 	header := make([]byte, 20)
 	ts := uint64(time.Now().Unix())
-	binary.BigEndian.PutUint32(header[0:4], calculateCRC(ts, len(key), len(value), string(key), value))
+	binary.BigEndian.PutUint32(header[0:4], calculateCRC(ts, len(key), len(value), key, value))
 	binary.BigEndian.PutUint64(header[4:12], ts)
 	binary.BigEndian.PutUint32(header[12:16], uint32(len(key)))
 	binary.BigEndian.PutUint32(header[16:20], uint32(len(value)))
